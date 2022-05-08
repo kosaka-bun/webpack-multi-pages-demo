@@ -4,8 +4,10 @@ const fs = require('fs');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const { VueLoaderPlugin } = require('vue-loader');
+const { DefinePlugin } = require('webpack');
 //endregion
 
+//region 搜索src/pages目录下所有文件，添加对应的入口点与HTML编译插件
 const pageNames = fs.readdirSync(path.join(__dirname, 'src', 'pages'));
 
 const entry = {};
@@ -19,6 +21,21 @@ pageNames.forEach(name => {
     chunks: [ name ]
   }));
 });
+//endregion
+
+//region 根据环境添加环境变量
+const env = process.env.NODE_ENV;
+let envVariables = {};
+const envVariablesFilePath = path.join(__dirname, 'env', env + '.json');
+if(fs.existsSync(envVariablesFilePath)) {
+  const jsonStr = fs.readFileSync(envVariablesFilePath)
+      .toString('utf-8');
+  envVariables = JSON.parse(jsonStr);
+  for(let key in envVariables) {
+    envVariables[key] = JSON.stringify(envVariables[key]);
+  }
+}
+//endregion
 
 module.exports = {
   entry,
@@ -28,6 +45,12 @@ module.exports = {
   },
   module: {
     rules: [
+      {
+        test: /\.js$/,
+        use: [
+          'babel-loader'
+        ]
+      },
       {
         test: /\.css$/,
         use: [
@@ -46,7 +69,10 @@ module.exports = {
   plugins: [
       ...plugins,
       new CleanWebpackPlugin(),
-      new VueLoaderPlugin()
+      new VueLoaderPlugin(),
+      new DefinePlugin({
+        'process.env': envVariables
+      })
   ],
   resolve: {
     extensions: [ '.js', '.css' ],
@@ -55,8 +81,13 @@ module.exports = {
     }
   },
   devServer: {
+    port: 8080,
     watchFiles: [ './src/**/*' ],
     hot: true
   },
-  devtool: "inline-source-map"
+  devtool: "inline-source-map",
+  performance: {
+    maxEntrypointSize: 10 * 1024 * 1024,
+    maxAssetSize: 10 * 1024 * 1024
+  }
 };
