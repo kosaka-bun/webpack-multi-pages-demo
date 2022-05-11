@@ -5,6 +5,8 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const { VueLoaderPlugin } = require('vue-loader');
 const { DefinePlugin } = require('webpack');
+const TerserPlugin = require('terser-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 //endregion
 
 //region 搜索src/pages目录下所有文件，添加对应的入口点与HTML编译插件
@@ -37,11 +39,18 @@ if(fs.existsSync(envVariablesFilePath)) {
 }
 //endregion
 
+//region devtool
+let devtool;
+if(process.env.NODE_ENV === 'development') {
+  devtool = 'inline-source-map';
+}
+//endregion
+
 module.exports = {
   entry,
   output: {
     path: path.join(__dirname, 'dist'),
-    filename: './js/[name]-[chunkhash].js'
+    filename: './static/js/[name]-[chunkhash].js'
   },
   module: {
     rules: [
@@ -52,9 +61,9 @@ module.exports = {
         ]
       },
       {
-        test: /\.css$/,
+        test: /\.(sa|sc|c)ss$/,
         use: [
-          'style-loader',
+          MiniCssExtractPlugin.loader,
           'css-loader'
         ]
       },
@@ -67,12 +76,16 @@ module.exports = {
     ]
   },
   plugins: [
-      ...plugins,
-      new CleanWebpackPlugin(),
-      new VueLoaderPlugin(),
-      new DefinePlugin({
-        'process.env': envVariables
-      })
+    ...plugins,
+    new CleanWebpackPlugin(),
+    new VueLoaderPlugin(),
+    new DefinePlugin({
+      'process.env': envVariables
+    }),
+    new MiniCssExtractPlugin({
+      filename: './static/css/[name]-[chunkhash].css',
+      chunkFilename: './static/css/[name]-[chunkhash].css'
+    })
   ],
   resolve: {
     extensions: [ '.js', '.css' ],
@@ -85,9 +98,32 @@ module.exports = {
     watchFiles: [ './src/**/*' ],
     hot: true
   },
-  devtool: "inline-source-map",
+  devtool,
   performance: {
-    maxEntrypointSize: 10 * 1024 * 1024,
-    maxAssetSize: 10 * 1024 * 1024
+    maxEntrypointSize: 2 * 1024 * 1024,
+    maxAssetSize: 2 * 1024 * 1024
+  },
+  optimization: {
+    minimize: true,
+    minimizer: [
+      new TerserPlugin({
+        test: /\.js(\?.*)?$/i,
+        parallel: true,
+        terserOptions: {
+          output: {
+            comments: false
+          }
+        },
+        extractComments: true
+      })
+    ],
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        defaultVendors: {
+          test: /[\\/]node_modules[\\/]/
+        },
+      },
+    }
   }
 };
